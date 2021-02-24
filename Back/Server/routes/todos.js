@@ -1,10 +1,11 @@
 const express = require('express');
 const {pool} = require('../config/pgconfig');
+const findIdTask = require('../middlewares/todo');
 
 const app = express();
 
 app.get('/todos',(req, res) => {
-    pool.query(`SELECT * FROM todo as td`, (err, todos) => {
+    pool.query(`SELECT * FROM todo as td ORDER BY todo_id ASC`, (err, todos) => {
         if(err) {
             return res.status(400).json({
                 ok: false,
@@ -20,9 +21,9 @@ app.get('/todos',(req, res) => {
     });
 });
 
-app.get('/todos/:id',(req,res) => {
+app.get('/myTask/view/:id',(req,res) => {
     const id = parseInt(req.params.id);
-    pool.query(`SELECT * FROM todo As td WHERE td.todo_id =$1`, [id], (err, todo) => {
+    pool.query(`SELECT * FROM todo As td WHERE td.todo_id=$1`, [id], (err, todo) => {
         if(err) {
             return res.status(400).json({
                 ok: false,
@@ -54,7 +55,7 @@ app.post('/todos', (req, res) => {
     });
 });
 
-app.put('/todos/:id',(req, res) => {
+app.put('/todos/:id',findIdTask,(req, res) => {
     const todoId = parseInt(req.params.id);
     const {name, title, completed} = req.body;
     pool.query(`UPDATE todo as td SET name=$2, title=$3, completed=$4 WHERE td.todo_id=$1`, [todoId,name,title,completed], (err, todo) => {
@@ -73,12 +74,12 @@ app.put('/todos/:id',(req, res) => {
     });
 });
 
-app.delete('/todos/:id',(req,res) => {
+app.patch('/todos/:id', findIdTask, (req,res) => {
     const todoId = parseInt(req.params.id);
-    const completed = true;
+    const completed = req.query.completed;
     pool.query(`UPDATE todo as td SET completed=$1 WHERE td.todo_id=$2`, [completed, todoId], (err, todo) =>{
         if(err) {
-            res.status(400).json({
+            return res.status(400).json({
                 ok: false,
                 err
             });
@@ -86,10 +87,28 @@ app.delete('/todos/:id',(req,res) => {
         res.json({
             ok: true,
             todo: {
-                message: `Actividad con ID: ${todoId} ha sido borrada.`
+                message: `Actividad con ID: ${todoId} ha sido completada.`
             }
         });
     });
 });
+
+app.delete('/todos/:id', findIdTask, (req,res) => {
+    const todoID = parseInt(req.params.id);
+    pool.query(`DELETE FROM todo as td WHERE td.todo_id=$1`,[todoID], (err, todo) => {
+        if(err) {
+            return res.status(400).json({
+                ok: false,
+                err
+            });
+        }
+        res.json({
+            ok: true,
+            todo: {
+                message: `Actividad con ID: ${todoID} ha sido borrada.`
+            }
+        })
+    })
+})
 
 module.exports = app;
